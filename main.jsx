@@ -29,7 +29,7 @@ function App(){
  useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data})=>setSession(data.session));const {data:l}=supabase.auth.onAuthStateChange((_,s)=>setSession(s));return()=>l.subscription.unsubscribe()},[]);
  useEffect(()=>{if(!supabase)return;Promise.all([supabase.from("events").select("*").order("sort_order"),supabase.from("gallery").select("*").order("created_at",{ascending:false}),supabase.from("committee").select("*").order("sort_order")]).then(([a,b,c])=>{if(a.data?.length)setEvents(a.data);if(b.data?.length)setGallery(b.data);if(c.data?.length)setMembers(c.data)})},[]);
  return <div>
- <header className="nav"><button className="brand" onClick={()=>go("home")}><img src="/logo.svg"/><span>MORYA<small>GANPATI GROUP</small></span></button>
+ <header className="nav"><button className="brand" onClick={()=>go("home")}><img src="./logo.svg"/><span>MORYA<small>GANPATI GROUP</small></span></button>
  <nav className={open?"open":""}>{["home","about","events","gallery","committee","contact"].map(x=><button key={x} onClick={()=>{setOpen(false);go(x)}}>{x==="contact"?"CONTACT":x.toUpperCase()}</button>)}<button className="join" onClick={()=>go("contact")}>JOIN US <ArrowUpRight size={12}/></button></nav><button className="hamb" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button></header>
 
  <section id="home" className="hero">
@@ -49,7 +49,7 @@ function App(){
 
  <section id="contact" className="contribute"><div className="center-title"><span>―　MAKE A CONTRIBUTION　―</span><i>✦</i></div><div className="heart">♡</div><h2>Be a part of<br/><em>the celebration.</em></h2><p>Your contribution helps us organize events, social activities and support the community.</p><button className="gold" onClick={()=>alert("Connect your payment link/UPI details here.")}>CONTRIBUTE NOW <ArrowUpRight size={14}/></button><div className="payment"><div><h3>SCAN TO PAY</h3><div className="qr">QR</div></div><div><h3>BANK TRANSFER</h3><p>Morya Ganpati Group<br/>Bank: Your Bank Name<br/>A/C No: XXXXXXXX<br/>IFSC: XXXXXXXX</p></div></div></section>
 
- <footer><div className="footer-brand"><img src="/logo.svg"/> <b>MORYA<small>GANPATI GROUP</small></b></div><div className="footlinks">{["Home","About Us","Events","Gallery","Committee","Contribution","Contact"].map(x=><button key={x} onClick={()=>go(x.toLowerCase().replace(" ",""))}>{x}</button>)}</div><button className="admin" onClick={()=>setAdmin(true)}><Lock size={11}/> ADMIN</button><div className="copy">© 2025 Morya Ganpati Group. All Rights Reserved.　　Privacy Policy　|　Terms & Conditions</div></footer>
+ <footer><div className="footer-brand"><img src="./logo.svg"/> <b>MORYA<small>GANPATI GROUP</small></b></div><div className="footlinks">{["Home","About Us","Events","Gallery","Committee","Contribution","Contact"].map(x=><button key={x} onClick={()=>go(x.toLowerCase().replace(" ",""))}>{x}</button>)}</div><button className="admin" onClick={()=>setAdmin(true)}><Lock size={11}/> ADMIN</button><div className="copy">© 2025 Morya Ganpati Group. All Rights Reserved.　　Privacy Policy　|　Terms & Conditions</div></footer>
  {admin&&<Admin session={session} close={()=>setAdmin(false)} refresh={()=>location.reload()}/>}
  </div>
 }
