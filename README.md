@@ -1,0 +1,1 @@
+# morya-ganpati-website
