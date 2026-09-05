@@ -25,10 +25,22 @@ function Placeholder({src,label,portrait=false}){
 
 function App(){
  const [open,setOpen]=useState(false),[admin,setAdmin]=useState(false),[session,setSession]=useState(null);
- const [events,setEvents]=useState(defaultEvents),[gallery,setGallery]=useState(defaultGallery.map((x,i)=>({id:i,title:x[0],image_url:x[1]}))),[members,setMembers]=useState(defaultMembers.map((x,i)=>({id:i,name:x[0],role:x[1],image_url:""})));
+ const [events,setEvents]=useState(defaultEvents),[gallery,setGallery]=useState(defaultGallery.map((x,i)=>({id:i,title:x[0],image_url:x[1]}))),[members,setMembers]=useState(defaultMembers.map((x,i)=>({id:i,name:x[0],role:x[1],image_url:""}))),[story,setStory]=useState(null);
  useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data})=>setSession(data.session));const {data:l}=supabase.auth.onAuthStateChange((_,s)=>setSession(s));return()=>l.subscription.unsubscribe()},[]);
- useEffect(()=>{if(!supabase)return;Promise.all([supabase.from("events").select("*").order("sort_order"),supabase.from("gallery").select("*").order("created_at",{ascending:false}),supabase.from("committee").select("*").order("sort_order")]).then(([a,b,c])=>{if(a.data?.length)setEvents(a.data);if(b.data?.length)setGallery(b.data);if(c.data?.length)setMembers(c.data)})},[]);
- return <div>
+ useEffect(()=>{if(!supabase)return;Promise.all([
+  supabase.from("events").select("*").order("sort_order"),
+  supabase.from("gallery").select("*").order("created_at",{ascending:false}),
+  supabase.from("committee").select("*").order("sort_order"),
+  supabase.from("story").select("*").limit(1).maybeSingle()
+]).then(([a,b,c,d])=>{
+  if(a.data?.length)setEvents(a.data);
+  if(b.data?.length)setGallery(b.data);
+  if(c.data?.length)setMembers(c.data);
+  if(d.data)setStory(d.data);
+})},[]);
+
+ return (
+ <div>
  <header className="nav"><button className="brand" onClick={()=>go("home")}><img src="./logo.svg"/><span>MORYA<small>GANPATI GROUP</small></span></button>
  <nav className={open?"open":""}>{["home","about","events","gallery","committee","contact"].map(x=><button key={x} onClick={()=>{setOpen(false);go(x)}}>{x==="contact"?"CONTACT":x.toUpperCase()}</button>)}<button className="join" onClick={()=>go("contact")}>JOIN US <ArrowUpRight size={12}/></button></nav><button className="hamb" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button></header>
 
@@ -38,8 +50,34 @@ function App(){
  </section>
 
  <section id="about" className="story">
-  <div className="center-title"><span>―　OUR STORY　―</span><i>✦</i></div><div className="story-grid"><div className="story-image"><Placeholder label="GANPATI BAPPA"/></div><div><h2>Our group was founded<br/>with a simple belief —<br/><em>Devotion brings us together.</em></h2><p>Morya Ganpati Group has been celebrating Ganeshotsav with devotion and enthusiasm since many years. Our aim is to preserve our culture and spread happiness.</p><button className="outline" onClick={()=>go("committee")}>READ MORE <ArrowUpRight size={13}/></button></div></div>
- </section>
+  <div className="center-title">
+    <span>―　OUR STORY　―</span>
+    <i>✦</i>
+  </div>
+
+  <div className="story-grid">
+    <div className="story-image">
+      <Placeholder
+        src={story?.image_url}
+        label="GANPATI BAPPA"
+      />
+    </div>
+
+    <div>
+      <h2>
+        {story?.heading || "Our group was founded with a simple belief — Devotion brings us together."}
+      </h2>
+
+      <p>
+        {story?.description || "Morya Ganpati Group has been celebrating Ganeshotsav with devotion and enthusiasm since many years. Our aim is to preserve our culture and spread happiness."}
+      </p>
+
+      <button className="outline" onClick={()=>go("committee")}>
+        READ MORE <ArrowUpRight size={13}/>
+      </button>
+    </div>
+  </div>
+</section>
 
  <section id="events" className="events"><div className="center-title"><span>―　UPCOMING EVENTS　―</span><i>✦</i></div><div className="event-cards">{events.map((e,i)=><article className="event-card" key={e.id||i}><Placeholder src={e.image||e.image_url} label={e.title}/><h3>{e.title}</h3><p>▣　{e.date||"September 2025"}</p></article>)}</div><button className="outline center-btn">VIEW ALL EVENTS <ArrowUpRight size={13}/></button></section>
 
@@ -52,9 +90,126 @@ function App(){
  <footer><div className="footer-brand"><img src="./logo.svg"/> <b>MORYA<small>GANPATI GROUP</small></b></div><div className="footlinks">{["Home","About Us","Events","Gallery","Committee","Contribution","Contact"].map(x=><button key={x} onClick={()=>go(x.toLowerCase().replace(" ",""))}>{x}</button>)}</div><button className="admin" onClick={()=>setAdmin(true)}><Lock size={11}/> ADMIN</button><div className="copy">© 2025 Morya Ganpati Group. All Rights Reserved.　　Privacy Policy　|　Terms & Conditions</div></footer>
  {admin&&<Admin session={session} close={()=>setAdmin(false)} refresh={()=>location.reload()}/>}
  </div>
+ );
 }
 function Admin({session,close,refresh}){const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[file,setFile]=useState(null),[title,setTitle]=useState(""),[msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+const [storyHeading,setStoryHeading]=useState("");
+const [storyDescription,setStoryDescription]=useState("");
+const [storyFile,setStoryFile]=useState(null);
  async function login(e){e.preventDefault();if(!supabaseConfigured)return setMsg("Configure Supabase first — see SETUP.md.");setBusy(true);const {error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);setMsg(error?.message||"Logged in.");}
+ async function saveStory(){
+  if(!supabase)return setMsg("Configure Supabase first.");
+
+  if(!storyHeading.trim() || !storyDescription.trim()){
+    return setMsg("Please enter the Story heading and description.");
+  }
+
+  setBusy(true);
+
+  let imageUrl = null;
+
+  if(storyFile){
+    const path = Date.now()+"-"+storyFile.name.replace(/[^a-zA-Z0-9._-]/g,"-");
+
+    const uploadResult = await supabase.storage
+      .from("story")
+      .upload(path,storyFile);
+
+    if(uploadResult.error){
+      setBusy(false);
+      return setMsg(uploadResult.error.message);
+    }
+
+    const {data} = supabase.storage
+      .from("story")
+      .getPublicUrl(path);
+
+    imageUrl = data.publicUrl;
+  }
+
+  const {data:existing} = await supabase
+    .from("story")
+    .select("id,image_url")
+    .limit(1)
+    .maybeSingle();
+
+  const storyData = {
+    heading: storyHeading.trim(),
+    description: storyDescription.trim()
+  };
+
+  if(imageUrl){
+    storyData.image_url = imageUrl;
+  }
+
+  let result;
+
+  if(existing?.id){
+    result = await supabase
+      .from("story")
+      .update(storyData)
+      .eq("id",existing.id);
+  }else{
+    result = await supabase
+      .from("story")
+      .insert(storyData);
+  }
+
+  setBusy(false);
+
+  if(result.error){
+    return setMsg(result.error.message);
+  }
+
+  setMsg("Story saved successfully.");
+  setStoryFile(null);
+  refresh();
+}
  async function upload(){if(!supabase)return setMsg("Configure Supabase first.");if(!file||!title.trim())return setMsg("Choose a photo and title.");setBusy(true);const path=Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"-");let r=await supabase.storage.from("gallery").upload(path,file);if(r.error){setBusy(false);return setMsg(r.error.message)}const {data}=supabase.storage.from("gallery").getPublicUrl(path);r=await supabase.from("gallery").insert({title:title.trim(),image_url:data.publicUrl});setBusy(false);setMsg(r.error?.message||"Photo uploaded.");if(!r.error){setFile(null);setTitle("");refresh()}}
- return <div className="modal"><div className="panel"><button className="close" onClick={close}><X/></button>{!session?<form onSubmit={login}><div className="tiny">MORYA ADMIN</div><h2>Private <em>dashboard.</em></h2><p>Sign in to manage gallery photos.</p><input type="email" placeholder="Admin email" value={email} onChange={e=>setEmail(e.target.value)} required/><input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required/><button className="gold wide" disabled={busy}>SIGN IN</button></form>:<><div className="tiny">MORYA ADMIN</div><h2>Add a <em>memory.</em></h2><label className="drop"><ImagePlus/><span>{file?file.name:"Choose a photo"}</span><input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><input placeholder="Photo title" value={title} onChange={e=>setTitle(e.target.value)}/><button className="gold wide" onClick={upload} disabled={busy}><Upload size={13}/> UPLOAD PHOTO</button><button className="logout" onClick={()=>{supabase?.auth.signOut();close()}}><LogOut size={13}/> LOG OUT</button></>}{msg&&<div className="msg">{msg}</div>}</div></div>}
+ return <div className="modal"><div className="panel"><button className="close" onClick={close}><X/></button>{!session?<form onSubmit={login}><div className="tiny">MORYA ADMIN</div><h2>Private <em>dashboard.</em></h2><p>Sign in to manage gallery photos.</p><input type="email" placeholder="Admin email" value={email} onChange={e=>setEmail(e.target.value)} required/><input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required/><button className="gold wide" disabled={busy}>SIGN IN</button></form>:<><div className="tiny">MORYA ADMIN</div>
+
+<h2>Manage <em>Story.</em></h2>
+
+<div className="admin-section">
+  <h3>📝 STORY</h3>
+
+  <label>Story Heading</label>
+  <input
+    placeholder="Enter Story heading"
+    value={storyHeading}
+    onChange={e=>setStoryHeading(e.target.value)}
+  />
+
+  <label>Story Description</label>
+  <textarea
+    placeholder="Enter Story description"
+    value={storyDescription}
+    onChange={e=>setStoryDescription(e.target.value)}
+    rows="6"
+  />
+
+  <label>Story Image</label>
+
+  <label className="drop">
+    <ImagePlus/>
+    <span>{storyFile ? storyFile.name : "Choose Story image"}</span>
+    <input
+      type="file"
+      accept="image/*"
+      onChange={e=>setStoryFile(e.target.files?.[0]||null)}
+    />
+  </label>
+
+  <button
+    className="gold wide"
+    onClick={saveStory}
+    disabled={busy}
+  >
+    SAVE STORY
+  </button>
+</div>
+
+<hr/>
+
+<h2>Add a <em>memory.</em></h2><label className="drop"><ImagePlus/><span>{file?file.name:"Choose a photo"}</span><input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><input placeholder="Photo title" value={title} onChange={e=>setTitle(e.target.value)}/><button className="gold wide" onClick={upload} disabled={busy}><Upload size={13}/> UPLOAD PHOTO</button><button className="logout" onClick={()=>{supabase?.auth.signOut();close()}}><LogOut size={13}/> LOG OUT</button></>}{msg&&<div className="msg">{msg}</div>}</div></div>}
 createRoot(document.getElementById("root")).render(<App/>);
